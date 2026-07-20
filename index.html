@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapid Flag Trainer</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("scoutTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 15% 20%, var(--cp-accent-soft), transparent 34%),
+                  radial-gradient(circle at 86% 16%, var(--cp-highlight), transparent 42%),
+                  linear-gradient(150deg, var(--cp-bg) 0%, var(--cp-bg-elevated) 100%);
+      color: var(--cp-text);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 1rem;
+      padding: 1rem;
+      overflow: hidden;
+    }
+
+    .panel {
+      background: var(--cp-panel-strong);
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+      backdrop-filter: blur(6px);
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.875rem 1rem;
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin: 0.3rem 0 0;
+      color: var(--cp-text-muted);
+      font-size: 0.94rem;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      border: 1px solid var(--cp-border-strong);
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      border-radius: 0.625rem;
+      padding: 0.5rem 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: var(--cp-surface-soft);
+    }
+
+    .btn.primary {
+      border-color: var(--cp-accent);
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+    }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      padding: 0.42rem 0.62rem;
+      font-size: 0.88rem;
+      color: var(--cp-text-muted);
+    }
+
+    .speed-wrap input,
+    .speed-wrap select {
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      font: inherit;
+      padding: 0.25rem 0.45rem;
+    }
+
+    .speed-wrap input {
+      width: 88px;
+    }
+
+    .speed-wrap select {
+      width: 94px;
+    }
+
+    .arena {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      padding: 1.2rem;
+      display: grid;
+      place-items: center;
+    }
+
+    .arena::before,
+    .arena::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(3px);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .arena::before {
+      width: 40vmin;
+      height: 40vmin;
+      background: var(--cp-accent-soft);
+      top: -8vmin;
+      right: -10vmin;
+    }
+
+    .arena::after {
+      width: 50vmin;
+      height: 50vmin;
+      background: var(--cp-highlight);
+      bottom: -18vmin;
+      left: -14vmin;
+    }
+
+    .flag-stage {
+      width: 100%;
+      height: min(62vh, 560px);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      position: relative;
+      overflow: visible;
+    }
+
+    .hero-flag-img {
+      width: 720px;
+      height: 405px;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 0.625rem;
+      border: 1px solid var(--cp-border);
+      background: var(--cp-surface-soft);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .country-name {
+      margin: 0;
+      padding: 0.55rem 0.95rem;
+      border-radius: 0.625rem;
+      border: 1px solid var(--cp-border);
+      background: var(--cp-panel);
+      color: var(--cp-text);
+      font-size: clamp(1rem, 2vw, 1.35rem);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-align: center;
+    }
+
+    .country-name.prompt {
+      color: var(--cp-text-muted);
+      font-weight: 600;
+    }
+
+    .country-name.hidden {
+      display: none;
+    }
+
+    .status {
+      padding: 0.75rem 1rem;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(90px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .stat {
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      padding: 0.5rem 0.62rem;
+      background: var(--cp-surface);
+    }
+
+    .stat .k {
+      display: block;
+      font-size: 0.76rem;
+      color: var(--cp-text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .stat .v {
+      display: block;
+      margin-top: 0.2rem;
+      font-weight: 700;
+      font-size: 1.03rem;
+    }
+
+    @media (max-width: 860px) {
+      .top {
+        grid-template-columns: 1fr;
+      }
+      .controls {
+        justify-content: flex-start;
+      }
+      .status {
+        grid-template-columns: repeat(2, minmax(90px, 1fr));
+      }
+      .flag-stage {
+        height: min(58vh, 480px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="panel top">
+    <div>
+      <h1 class="title">Rapid Flag Trainer</h1>
+      <p class="subtitle">Image-only rapid flags, streamed on demand for memorization.</p>
+    </div>
+    <div class="controls">
+      <button id="toggle" class="btn primary" type="button">Pause</button>
+      <button id="shuffle" class="btn" type="button">Shuffle</button>
+      <button id="toggleNames" class="btn" type="button">Hide Names</button>
+      <div class="speed-wrap">
+        <label for="fpmInput">Flags/Min</label>
+        <select id="fpmPreset" aria-label="Flags per minute presets">
+          <option value="90">90</option>
+          <option value="120">120</option>
+          <option value="150">150</option>
+          <option value="180" selected>180</option>
+          <option value="240">240</option>
+          <option value="300">300</option>
+        </select>
+        <input id="fpmInput" type="number" min="30" max="600" step="5" value="180" />
+        <strong id="speedText">180/min</strong>
+      </div>
+    </div>
+  </section>
+
+  <main class="panel arena">
+    <section class="flag-stage">
+      <img id="heroFlag" class="hero-flag-img" alt="Country flag" loading="eager" decoding="async" referrerpolicy="no-referrer" />
+      <p id="countryName" class="country-name">Loading...</p>
+    </section>
+  </main>
+
+  <footer class="panel status">
+    <div class="stat">
+      <span class="k">Entries</span>
+      <span id="totalCount" class="v">0</span>
+    </div>
+    <div class="stat">
+      <span class="k">Shown</span>
+      <span id="shownCount" class="v">0</span>
+    </div>
+    <div class="stat">
+      <span class="k">Rate / Min</span>
+      <span id="rate" class="v">--</span>
+    </div>
+    <div class="stat">
+      <span class="k">Mode</span>
+      <span id="mode" class="v">Running</span>
+    </div>
+  </footer>
+
+  <script>
+    const flagUrl = (code) => `https://flagcdn.com/w640/${code.toLowerCase()}.png`;
+
+    const buildDataset = async () => {
+      try {
+        const response = await fetch("https://flagcdn.com/en/codes.json", { cache: "force-cache" });
+        const codes = await response.json();
+        const entries = Object.entries(codes)
+          .filter(([code]) => /^[a-z]{2}$/.test(code))
+          .map(([code, name]) => ({ code: code.toUpperCase(), name }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        if (entries.length > 0) {
+          return entries;
+        }
+      } catch (error) {
+        // Fallback below handles offline or blocked fetch.
+      }
+
+      const names = new Intl.DisplayNames(["en"], { type: "region" });
+      const fallback = [];
+      for (let i = 65; i <= 90; i += 1) {
+        for (let j = 65; j <= 90; j += 1) {
+          const code = String.fromCharCode(i, j);
+          const name = names.of(code);
+          if (name && name !== code) {
+            fallback.push({ code, name });
+          }
+        }
+      }
+      return fallback;
+    };
+
+    const state = {
+      entries: [],
+      index: 0,
+      shown: 0,
+      running: true,
+      intervalMs: Math.round(60000 / 180),
+      timer: null,
+      imageCache: new Map(),
+      currentEntry: null,
+      namesVisible: true,
+      answerRevealed: true
+    };
+
+    const heroFlag = document.getElementById("heroFlag");
+    const countryName = document.getElementById("countryName");
+    const totalCount = document.getElementById("totalCount");
+    const shownCount = document.getElementById("shownCount");
+    const rate = document.getElementById("rate");
+    const mode = document.getElementById("mode");
+    const fpmPreset = document.getElementById("fpmPreset");
+    const fpmInput = document.getElementById("fpmInput");
+    const speedText = document.getElementById("speedText");
+    const toggle = document.getElementById("toggle");
+    const shuffle = document.getElementById("shuffle");
+    const toggleNames = document.getElementById("toggleNames");
+
+    const clampFpm = (value) => {
+      const fpm = Number(value);
+      if (!Number.isFinite(fpm)) return 180;
+      return Math.min(600, Math.max(30, Math.round(fpm)));
+    };
+
+    const getRatePerMinute = () => clampFpm(60000 / state.intervalMs);
+
+    const setFpm = (value) => {
+      const fpm = clampFpm(value);
+      state.intervalMs = Math.max(40, Math.round(60000 / fpm));
+      fpmInput.value = String(fpm);
+      restartTimer();
+    };
+
+    const updateAnswerText = () => {
+      if (!state.currentEntry) {
+        countryName.textContent = "Loading...";
+        countryName.classList.remove("prompt");
+        return;
+      }
+
+      if (state.namesVisible || state.answerRevealed) {
+        countryName.textContent = state.currentEntry.name;
+        countryName.classList.remove("prompt");
+      } else {
+        countryName.textContent = "Guess the country, then click the flag to reveal";
+        countryName.classList.add("prompt");
+      }
+    };
+
+    const getCachedImage = (code) => {
+      if (state.imageCache.has(code)) {
+        return state.imageCache.get(code);
+      }
+      const imgPromise = new Promise((resolve) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.loading = "eager";
+        img.referrerPolicy = "no-referrer";
+        img.src = flagUrl(code);
+        img.onload = () => resolve(img.src);
+        img.onerror = () => resolve(null);
+      });
+      state.imageCache.set(code, imgPromise);
+      return imgPromise;
+    };
+
+    const prefetchAhead = () => {
+      for (let i = 0; i < 6; i += 1) {
+        const nextIndex = (state.index + i) % state.entries.length;
+        const next = state.entries[nextIndex];
+        if (next) {
+          getCachedImage(next.code);
+        }
+      }
+    };
+
+    const updateStats = () => {
+      totalCount.textContent = String(state.entries.length);
+      shownCount.textContent = String(state.shown);
+      rate.textContent = `${getRatePerMinute()} flags`;
+      mode.textContent = state.running ? "Running" : "Paused";
+      speedText.textContent = `${getRatePerMinute()}/min`;
+    };
+
+    const showCurrent = async () => {
+      if (state.entries.length === 0) return;
+      const entry = state.entries[state.index];
+      if (!entry) return;
+      const src = await getCachedImage(entry.code);
+      if (src) {
+        state.currentEntry = entry;
+        state.answerRevealed = state.namesVisible;
+        heroFlag.src = src;
+        updateAnswerText();
+        state.index = (state.index + 1) % state.entries.length;
+        state.shown += 1;
+      } else {
+        state.entries.splice(state.index, 1);
+        if (state.index >= state.entries.length) {
+          state.index = 0;
+        }
+      }
+      prefetchAhead();
+      updateStats();
+    };
+
+    const restartTimer = () => {
+      if (state.timer) clearInterval(state.timer);
+      if (state.running) {
+        state.timer = setInterval(showCurrent, state.intervalMs);
+      }
+      updateStats();
+    };
+
+    const shuffleEntries = () => {
+      for (let i = state.entries.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [state.entries[i], state.entries[j]] = [state.entries[j], state.entries[i]];
+      }
+      state.index = 0;
+    };
+
+    fpmPreset.addEventListener("change", () => setFpm(fpmPreset.value));
+    fpmInput.addEventListener("change", () => setFpm(fpmInput.value));
+
+    toggle.addEventListener("click", () => {
+      state.running = !state.running;
+      toggle.textContent = state.running ? "Pause" : "Resume";
+      toggle.classList.toggle("primary", state.running);
+      restartTimer();
+    });
+
+    shuffle.addEventListener("click", () => {
+      shuffleEntries();
+      showCurrent();
+      restartTimer();
+    });
+
+    toggleNames.addEventListener("click", () => {
+      state.namesVisible = !state.namesVisible;
+      state.answerRevealed = state.namesVisible;
+      toggleNames.textContent = state.namesVisible ? "Hide Names" : "Show Names";
+      countryName.classList.remove("hidden");
+      updateAnswerText();
+    });
+
+    heroFlag.addEventListener("click", async () => {
+      if (!state.currentEntry || state.namesVisible) return;
+
+      if (!state.answerRevealed) {
+        state.answerRevealed = true;
+        updateAnswerText();
+        return;
+      }
+
+      await showCurrent();
+      restartTimer();
+    });
+
+    const init = async () => {
+      state.entries = await buildDataset();
+      shuffleEntries();
+      prefetchAhead();
+      await showCurrent();
+      setFpm(fpmInput.value);
+    };
+
+    init();
+  </script>
+</body>
+</html>
