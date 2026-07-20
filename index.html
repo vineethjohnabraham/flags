@@ -173,6 +173,46 @@
       width: 94px;
     }
 
+    .setup-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background: var(--cp-overlay);
+      padding: 1rem;
+    }
+
+    .setup-card {
+      width: min(720px, 100%);
+      padding: 1rem;
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(120px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .setup-field {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.9rem;
+      color: var(--cp-text-muted);
+    }
+
+    .setup-field select,
+    .setup-field input {
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      font: inherit;
+      padding: 0.45rem 0.6rem;
+    }
+
     .arena {
       position: relative;
       overflow: hidden;
@@ -253,6 +293,21 @@
       display: none;
     }
 
+    .quiz-actions {
+      display: flex;
+      gap: 0.65rem;
+      justify-content: center;
+      margin-top: 0.35rem;
+    }
+
+    .btn.success {
+      border-color: var(--cp-success);
+    }
+
+    .btn.danger {
+      border-color: var(--cp-danger);
+    }
+
     .status {
       padding: 0.75rem 1rem;
       display: grid;
@@ -295,10 +350,45 @@
       .flag-stage {
         height: min(58vh, 480px);
       }
+      .setup-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
+  <section id="setupScreen" class="setup-screen">
+    <div class="panel setup-card">
+      <h2 class="title">Start Flag Game</h2>
+      <p class="subtitle">Pick difficulty and mode, then start.</p>
+      <div class="setup-grid">
+        <label class="setup-field" for="difficultySetup">
+          Difficulty
+          <select id="difficultySetup">
+            <option value="easy">Easy (main countries)</option>
+            <option value="medium" selected>Medium (more countries)</option>
+            <option value="hard">Hard (non-popular + territories)</option>
+          </select>
+        </label>
+        <label class="setup-field" for="modeSetup">
+          Mode
+          <select id="modeSetup">
+            <option value="learning">Learning (names visible)</option>
+            <option value="expert" selected>Expert (reveal + mark)</option>
+          </select>
+        </label>
+        <label class="setup-field" for="fpmSetup">
+          Flags/Min
+          <input id="fpmSetup" type="number" min="30" max="600" step="5" value="180" />
+        </label>
+      </div>
+      <div class="controls" style="justify-content:flex-start;">
+        <button id="startClickGame" class="btn primary" type="button">Start Click Game</button>
+        <button id="startAutoGame" class="btn" type="button">Start Auto Run Game</button>
+      </div>
+    </div>
+  </section>
+
   <section class="panel top">
     <div>
       <h1 class="title">Rapid Flag Trainer</h1>
@@ -308,7 +398,15 @@
       <button id="toggle" class="btn primary" type="button">Pause</button>
       <button id="shuffle" class="btn" type="button">Shuffle</button>
       <button id="toggleNames" class="btn" type="button">Hide Names</button>
+      <button id="correctBtn" class="btn success" type="button">Correct</button>
+      <button id="incorrectBtn" class="btn danger" type="button">Incorrect</button>
       <div class="speed-wrap">
+        <label for="difficultyTop">Level</label>
+        <select id="difficultyTop" aria-label="Difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
         <label for="fpmInput">Flags/Min</label>
         <select id="fpmPreset" aria-label="Flags per minute presets">
           <option value="90">90</option>
@@ -348,10 +446,35 @@
       <span class="k">Mode</span>
       <span id="mode" class="v">Running</span>
     </div>
+    <div class="stat">
+      <span class="k">Correct</span>
+      <span id="correctCount" class="v">0</span>
+    </div>
+    <div class="stat">
+      <span class="k">Incorrect</span>
+      <span id="incorrectCount" class="v">0</span>
+    </div>
   </footer>
 
   <script>
     const flagUrl = (code) => `https://flagcdn.com/w640/${code.toLowerCase()}.png`;
+
+    const EASY_CODES = [
+      "US","CA","MX","BR","AR","CL","CO","PE","VE","UY","PY","BO",
+      "GB","IE","FR","DE","ES","PT","IT","NL","BE","CH","AT","SE","NO","DK","FI",
+      "PL","CZ","GR","RO","HU","UA","TR","RU",
+      "SA","AE","QA","KW","OM","IL","EG","MA","DZ","ZA","NG","KE","ET","GH",
+      "IN","PK","BD","LK","NP","CN","JP","KR","TW","TH","VN","MY","SG","ID","PH",
+      "AU","NZ"
+    ];
+
+    const MEDIUM_EXTRA_CODES = [
+      "IS","LU","SK","SI","HR","RS","BG","LT","LV","EE","BY","MD","AL","MK","BA","ME","CY","MT",
+      "JO","LB","IQ","IR","SY","YE","TN","LY","SD","UG","TZ","RW","ZW","ZM","BW","NA","MZ","AO","CM","CI","SN",
+      "CR","PA","CU","DO","GT","HN","SV","NI","JM","BS","TT",
+      "AF","KZ","UZ","TM","KG","TJ","MN","KH","LA","MM","BN","TL",
+      "PG","FJ","WS","TO"
+    ];
 
     const buildDataset = async () => {
       try {
@@ -391,10 +514,24 @@
       intervalMs: Math.round(60000 / 180),
       timer: null,
       imageCache: new Map(),
+      allEntries: [],
       currentEntry: null,
       namesVisible: true,
-      answerRevealed: true
+      answerRevealed: true,
+      awaitingMark: false,
+      difficulty: "medium",
+      gameMode: "expert",
+      progressionMode: "click",
+      correct: 0,
+      incorrect: 0
     };
+
+    const setupScreen = document.getElementById("setupScreen");
+    const difficultySetup = document.getElementById("difficultySetup");
+    const modeSetup = document.getElementById("modeSetup");
+    const fpmSetup = document.getElementById("fpmSetup");
+    const startClickGame = document.getElementById("startClickGame");
+    const startAutoGame = document.getElementById("startAutoGame");
 
     const heroFlag = document.getElementById("heroFlag");
     const countryName = document.getElementById("countryName");
@@ -402,12 +539,17 @@
     const shownCount = document.getElementById("shownCount");
     const rate = document.getElementById("rate");
     const mode = document.getElementById("mode");
+    const correctCount = document.getElementById("correctCount");
+    const incorrectCount = document.getElementById("incorrectCount");
     const fpmPreset = document.getElementById("fpmPreset");
     const fpmInput = document.getElementById("fpmInput");
+    const difficultyTop = document.getElementById("difficultyTop");
     const speedText = document.getElementById("speedText");
     const toggle = document.getElementById("toggle");
     const shuffle = document.getElementById("shuffle");
     const toggleNames = document.getElementById("toggleNames");
+    const correctBtn = document.getElementById("correctBtn");
+    const incorrectBtn = document.getElementById("incorrectBtn");
 
     const clampFpm = (value) => {
       const fpm = Number(value);
@@ -424,6 +566,67 @@
       restartTimer();
     };
 
+    const getEntriesByDifficulty = () => {
+      if (state.difficulty === "easy") {
+        const easySet = new Set(EASY_CODES);
+        return state.allEntries.filter((entry) => easySet.has(entry.code));
+      }
+
+      if (state.difficulty === "medium") {
+        const mediumSet = new Set([...EASY_CODES, ...MEDIUM_EXTRA_CODES]);
+        return state.allEntries.filter((entry) => mediumSet.has(entry.code));
+      }
+
+      const mediumSet = new Set([...EASY_CODES, ...MEDIUM_EXTRA_CODES]);
+      const hardEntries = state.allEntries.filter((entry) => !mediumSet.has(entry.code));
+      return hardEntries.length > 0 ? hardEntries : state.allEntries;
+    };
+
+    const applyGameMode = () => {
+      if (state.gameMode === "expert") {
+        state.namesVisible = false;
+        toggleNames.textContent = "Show Names";
+      } else {
+        state.namesVisible = true;
+        toggleNames.textContent = "Hide Names";
+      }
+      updateAnswerText();
+      updateActionButtons();
+    };
+
+    const syncProgressionControls = () => {
+      const isAuto = state.progressionMode === "auto";
+      toggle.disabled = !isAuto;
+      toggle.textContent = isAuto ? (state.running ? "Pause" : "Resume") : "Auto Off";
+      toggle.classList.toggle("primary", isAuto && state.running);
+    };
+
+    const updateActionButtons = () => {
+      const canMark = Boolean(state.currentEntry) && (state.gameMode !== "expert" || state.answerRevealed);
+      correctBtn.disabled = !canMark;
+      incorrectBtn.disabled = !canMark;
+    };
+
+    const resetScore = () => {
+      state.correct = 0;
+      state.incorrect = 0;
+    };
+
+    const rebuildGame = async (resetCounters = true) => {
+      state.entries = getEntriesByDifficulty();
+      state.index = 0;
+      state.currentEntry = null;
+      state.awaitingMark = false;
+      if (resetCounters) {
+        state.shown = 0;
+        resetScore();
+      }
+      shuffleEntries();
+      prefetchAhead();
+      await showCurrent();
+      updateStats();
+    };
+
     const updateAnswerText = () => {
       if (!state.currentEntry) {
         countryName.textContent = "Loading...";
@@ -438,6 +641,8 @@
         countryName.textContent = "Guess the country, then click the flag to reveal";
         countryName.classList.add("prompt");
       }
+
+      updateActionButtons();
     };
 
     const getCachedImage = (code) => {
@@ -471,7 +676,11 @@
       totalCount.textContent = String(state.entries.length);
       shownCount.textContent = String(state.shown);
       rate.textContent = `${getRatePerMinute()} flags`;
-      mode.textContent = state.running ? "Running" : "Paused";
+      const modeLabel = state.gameMode === "expert" ? "Expert" : "Learning";
+      const progressionLabel = state.progressionMode === "auto" ? (state.running ? "Auto" : "Paused") : "Click";
+      mode.textContent = `${modeLabel} / ${progressionLabel}`;
+      correctCount.textContent = String(state.correct);
+      incorrectCount.textContent = String(state.incorrect);
       speedText.textContent = `${getRatePerMinute()}/min`;
     };
 
@@ -483,6 +692,7 @@
       if (src) {
         state.currentEntry = entry;
         state.answerRevealed = state.namesVisible;
+        state.awaitingMark = false;
         heroFlag.src = src;
         updateAnswerText();
         state.index = (state.index + 1) % state.entries.length;
@@ -499,9 +709,10 @@
 
     const restartTimer = () => {
       if (state.timer) clearInterval(state.timer);
-      if (state.running) {
+      if (state.progressionMode === "auto" && state.running) {
         state.timer = setInterval(showCurrent, state.intervalMs);
       }
+      syncProgressionControls();
       updateStats();
     };
 
@@ -515,11 +726,16 @@
 
     fpmPreset.addEventListener("change", () => setFpm(fpmPreset.value));
     fpmInput.addEventListener("change", () => setFpm(fpmInput.value));
+    difficultyTop.addEventListener("change", async () => {
+      state.difficulty = difficultyTop.value;
+      difficultySetup.value = state.difficulty;
+      await rebuildGame();
+      restartTimer();
+    });
 
     toggle.addEventListener("click", () => {
+      if (state.progressionMode !== "auto") return;
       state.running = !state.running;
-      toggle.textContent = state.running ? "Pause" : "Resume";
-      toggle.classList.toggle("primary", state.running);
       restartTimer();
     });
 
@@ -542,20 +758,70 @@
 
       if (!state.answerRevealed) {
         state.answerRevealed = true;
+        state.awaitingMark = state.gameMode === "expert";
+        if (state.progressionMode === "auto" && state.gameMode === "expert") {
+          state.running = false;
+          restartTimer();
+        }
         updateAnswerText();
         return;
       }
 
-      await showCurrent();
-      restartTimer();
+      if (state.gameMode === "learning" && state.progressionMode === "click") {
+        await showCurrent();
+      }
     });
 
-    const init = async () => {
-      state.entries = await buildDataset();
-      shuffleEntries();
-      prefetchAhead();
+    correctBtn.addEventListener("click", async () => {
+      if (!state.currentEntry) return;
+      if (state.gameMode === "expert" && !state.answerRevealed) return;
+      state.correct += 1;
+      state.awaitingMark = false;
+      if (state.progressionMode === "auto") {
+        state.running = true;
+      }
       await showCurrent();
+      if (state.progressionMode === "auto") {
+        restartTimer();
+      }
+    });
+
+    incorrectBtn.addEventListener("click", async () => {
+      if (!state.currentEntry) return;
+      if (state.gameMode === "expert" && !state.answerRevealed) return;
+      state.incorrect += 1;
+      state.awaitingMark = false;
+      if (state.progressionMode === "auto") {
+        state.running = true;
+      }
+      await showCurrent();
+      if (state.progressionMode === "auto") {
+        restartTimer();
+      }
+    });
+
+    const startGame = async (progressionMode) => {
+      state.difficulty = difficultySetup.value;
+      state.gameMode = modeSetup.value;
+      state.progressionMode = progressionMode;
+      state.running = progressionMode === "auto";
+      difficultyTop.value = state.difficulty;
+      setFpm(fpmSetup.value);
+      applyGameMode();
+      setupScreen.style.display = "none";
+      await rebuildGame();
+      restartTimer();
+    };
+
+    startClickGame.addEventListener("click", async () => startGame("click"));
+    startAutoGame.addEventListener("click", async () => startGame("auto"));
+
+    const init = async () => {
+      state.allEntries = await buildDataset();
+      state.entries = [...state.allEntries];
       setFpm(fpmInput.value);
+      syncProgressionControls();
+      updateStats();
     };
 
     init();
